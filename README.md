@@ -37,3 +37,7 @@ Backup Script
 ```bash
 node src/index.js
 ```
+
+## PrivatKeys
+
+ssh-keygen -t rsa -b 4096 -C "email"

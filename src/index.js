@@ -24,11 +24,13 @@ async function runBackupTask() {
 const [hour, minute] = process.env.BACKUP_TIME.split(':')
 const cronExpression = `${minute} ${hour} * * *`
 
-cron.schedule(cronExpression, () => {
-  runBackupTask()
-}, {
-  scheduled: true,
-  timezone: "Europe/warsaw"
-})
+// cron.schedule(cronExpression, () => {
+//   runBackupTask()
+// }, {
+//   scheduled: true,
+//   timezone: "Europe/warsaw"
+// })
 
 console.log(`Backup planed at ${process.env.BACKUP_TIME} everyday.`)
+
+runBackupTask() //TODO

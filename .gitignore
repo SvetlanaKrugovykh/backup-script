@@ -33,3 +33,5 @@ E:/Backup/
 # Ignore specific output or temp folders
 dist/
 temp/
+
+path
