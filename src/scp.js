@@ -2,37 +2,48 @@ const { NodeSSH } = require('node-ssh')
 const ssh = new NodeSSH()
 const fs = require('fs-extra')
 
-async function fetchDataFromFreeBSD(config, logFile) {
-  try {
-    const privateKey = config.SCP_PRIVATE_KEY
-      ? await fs.readFile(config.SCP_PRIVATE_KEY, 'utf8')
-      : undefined
+async function fetchDataFromUnix(configs, logFile) {
+  for (const config of configs) {
+    try {
+      if (!config.SCP_PRIVATE_KEY) {
+        console.log(`Skipping ${config.SCP_HOST} due to missing private key.`)
+        continue
+      }
 
-    await ssh.connect({
-      host: config.SCP_HOST,
-      port: config.SCP_PORT,
-      username: config.SCP_USERNAME,
-      password: config.SCP_PASSWORD || undefined,
-      privateKey: privateKey || undefined
-    })
+      const privateKey = await fs.readFile(config.SCP_PRIVATE_KEY, 'utf8')
 
-    const remotePath = config.SCP_REMOTE_PATH
-    const localPath = `${config.BACKUP_ROOT}/FreeBSD_Data`
+      await ssh.connect({
+        host: config.SCP_HOST,
+        port: config.SCP_PORT,
+        username: config.SCP_USERNAME,
+        password: config.SCP_PASSWORD || undefined,
+        privateKey: privateKey || undefined
+      })
 
-    await fs.ensureDir(localPath)
+      const remotePath = config.SCP_REMOTE_PATH
+      const localPath = `${config.BACKUP_ROOT}/Unix_Data_${config.SCP_HOST}`
 
-    await ssh.getFile(`${localPath}/data.tar.gz`, remotePath)
+      await fs.ensureDir(localPath)
 
-    const logMessage = `SCP data fetched from ${config.SCP_HOST} on ${new Date().toLocaleString()}\n`
-    await fs.appendFile(logFile, logMessage)
-    console.log(logMessage)
-  } catch (error) {
-    console.error('SCP Error:', error)
-    const errorLog = `SCP FAILED on ${new Date().toLocaleString()}: ${error}\n`
-    await fs.appendFile(logFile, errorLog)
-  } finally {
-    ssh.dispose()
+      const result = await ssh.execCommand(`ls ${remotePath}/*.tar.gz`)
+      const files = result.stdout.split('\n').filter(file => file.trim() !== '')
+
+      for (const file of files) {
+        const fileName = file.split('/').pop()
+        await ssh.getFile(`${localPath}/${fileName}`, file)
+      }
+
+      const logMessage = `SCP data fetched from ${config.SCP_HOST} on ${new Date().toLocaleString()}\n`
+      await fs.appendFile(logFile, logMessage)
+      console.log(logMessage)
+    } catch (error) {
+      console.error('SCP Error:', error)
+      const errorLog = `SCP FAILED on ${new Date().toLocaleString()}: ${error}\n`
+      await fs.appendFile(logFile, errorLog)
+    } finally {
+      ssh.dispose()
+    }
   }
 }
 
-module.exports = { fetchDataFromFreeBSD }
+module.exports = { fetchDataFromUnix }
