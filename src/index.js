@@ -1,6 +1,7 @@
 require('dotenv').config()
 const cron = require('node-cron')
 const fs = require('fs-extra')
+const path = require('path')
 const { performBackup } = require('./backup')
 const { fetchDataFromUnix } = require('./scp')
 
@@ -8,10 +9,10 @@ const BACKUP_ROOT = process.env.BACKUP_ROOT
 const SOURCES = JSON.parse(process.env.SOURCES)
 const SCP_CONFIGS = JSON.parse(process.env.SCP_CONFIGS)
 
-
 const LOG_DIR = process.env.LOG_DIR || 'logs'
 const LOG_FILE = process.env.LOG_FILE || `${BACKUP_ROOT}/backup.log`
 const Platform_OS = process.env.Platform_OS || 'FreeBSD'
+const START_CRON = process.env.START_CRON === 'true'
 
 function setupLogging() {
   if (!fs.existsSync(LOG_DIR)) {
@@ -34,12 +35,10 @@ function setupLogging() {
   }
 }
 
-
 async function runBackupTask() {
   console.log('Start backup:', new Date().toLocaleString())
 
   await fetchDataFromUnix(SCP_CONFIGS, LOG_FILE)
-
   await performBackup(SOURCES, BACKUP_ROOT, LOG_FILE)
 
   console.log('End backup:', new Date().toLocaleString())
@@ -52,11 +51,14 @@ if (Platform_OS === 'Windows') {
   setupLogging()
 }
 
-cron.schedule(cronExpression, () => {
+if (START_CRON) {
+  cron.schedule(cronExpression, () => {
+    runBackupTask()
+  }, {
+    scheduled: true,
+    timezone: "Europe/warsaw"
+  })
+  console.log(`Backup planed at ${process.env.BACKUP_TIME} everyday.`)
+} else {
   runBackupTask()
-}, {
-  scheduled: true,
-  timezone: "Europe/warsaw"
-})
-
-console.log(`Backup planed at ${process.env.BACKUP_TIME} everyday.`)
+}
